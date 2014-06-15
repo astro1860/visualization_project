@@ -26,5 +26,6 @@ HOW TO USE IT?
  1. go to different files
  2. run the ipynb to generate json file or use the existing json file
  3. run the html file to see the visualization using the followin command: 
- 
 python -m SimpleHTTPServer 8888 &
+ 4. go to http://localhost:8888/
+note: you can also change 8888 to any number from 0 to 8888. e.g. 7900
