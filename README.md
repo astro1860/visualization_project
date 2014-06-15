@@ -5,6 +5,7 @@ This is a visualization project. For detailed info, visit www.luhangxin.info
 
 
 TOOLS I USED FOR THIS PROJECT:
+
 Ipython: command shell for interactive computing (http://ipython.org/)
 
 Networkx: a Python language software package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks. (http://networkx.github.io/)
