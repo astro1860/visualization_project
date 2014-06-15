@@ -23,6 +23,8 @@ VISUALIZATIONS
  3. Social network visualization
  
 HOW TO USE IT?
-1. go to different files
-2. run the ipynb to generate json file or use the existing json file
-3. run the html file to see the visualization
+ 1. go to different files
+ 2. run the ipynb to generate json file or use the existing json file
+ 3. run the html file to see the visualization using the followin command: 
+ 
+python -m SimpleHTTPServer 8888 &
