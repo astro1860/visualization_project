@@ -22,3 +22,7 @@ VISUALIZATIONS
     - integrated interface showing centrality information
  3. Social network visualization
  
+HOW TO USE IT?
+1. go to different files
+2. run the ipynb to generate json file or use the existing json file
+3. run the html file to see the visualization
