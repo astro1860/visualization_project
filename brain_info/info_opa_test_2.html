@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<style>
+
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  margin: 0;
+  position: absolute;
+  width: 960px;
+  font-size: 14px;
+}
+
+.link {
+  stroke: #636363;
+}
+
+.node text {
+  pointer-events: none;
+}
+
+.nodetext {
+  font-size: 24px;
+}
+
+.title {
+  font-size: 34px;
+}
+
+.sizeby {
+  font-size: 20px;
+}
+
+.sizenote {
+  font-size: 16px;
+}
+
+.rankingtext {
+  font-size: 16px;
+}
+.rankingtitle {
+  font-size: 28px;
+}
+.rankingnum {
+  font-size: 16px;
+}
+.clickfortwittier {
+  font-size: 18px;
+}
+
+form {
+  position: absolute;
+  left: 10px;
+  top: 378px;
+  font-size: 21px;
+}
+
+.highlight {
+  stroke-width: 3px !important;
+  stroke: #000 !important;
+}
+
+</style>
+  <body>
+   
+  <form>
+  <label><input type="radio" name="mode" value="eigen" checked="checked"> Eigenvector</label>
+  <label><input type="radio" name="mode" value="degree"> Degree</label>
+
+  </form>
+
+
+
+<script>
+
+
+var w = 1000,
+    h = 650,
+    r = 50,
+    l = 275,
+    svg,
+    force,
+    link,
+    node,
+    clip,
+    graph,
+    graphData,
+    metric = "eigen_cent",
+    scale = 1
+
+//var color = d3.scale.category20();
+// var color= d3.scale.linear()
+//             //.domain([0.03,0.04,0.2])
+//             //.range(["#e5f5e0","#a1d99b","#31a354"]);
+//             .domain([0.03,0.2])
+//             .range(["#fc9272","#de2d26"]);
+var color = d3.scale.ordinal().domain([0.03,0.2]).rangePoints([0, 100], 0).range(["#3182bd","#9ecae1"]);
+
+function showNodeDetails() {
+  return function(d, i) {
+    svg.selectAll(".nodetext").remove();
+    labels = [];
+    labels.push("" + d['name'],  "Eigenvector: " + d['eigen_cent'].toFixed(4), "Degree: " + d['degree_cent'].toFixed(4))
+    setDetailLabels(labels);
+    // graph.selectAll("circle")
+    //   .transition()
+    //     .duration(100)
+        //.attr("fill-opacity", 0.5);
+    d3.select("." + d.name).selectAll("circle")
+      .transition()
+        .duration(100)
+        //.attr("class", "circle highlight")
+        .attr("r", 20)
+        //.style("fill","#de2d26")
+        .attr("fill-opacity", 0.4);
+    d3.select("." + d.name).selectAll("text")
+        .attr("fill", "white")
+        .style("font", "20px sans-serif");
+    d3.select(".id" + d.id)
+      .attr("fill", "white");
+  }
+}
+
+
+function resetDetailLabels() {
+  svg.selectAll(".nodetext").remove();
+  labels = ["Hover on a circle", "to see details", "Eigenvector: ", "Degree: "];
+  setDetailLabels(labels);
+}
+
+
+function setDetailLabels(labels) {
+  svg.selectAll(".nodetext").remove();
+  svg.selectAll("text.nodetext").data(labels).enter().append("svg:text")
+    .attr("class", "nodetext")
+    .text(function() { return this.__data__; })
+    .attr("x", 10)
+    .attr("y", function(d, i){ return (this.getBBox().height * 1.2) * (i+3.2)});  
+}
+
+function removeNodeDetails() {
+  return function(d, i) {
+    resetDetailLabels();
+    // graph.selectAll("circle")
+    //   .transition()
+    //     .attr("fill-opacity", 1);
+    //graph.selectAll("image")
+      //.transition()
+        //.attr("style", "opacity: 1;");
+    d3.select("." + d.name).selectAll("circle")
+    .transition()
+      .duration(100)
+      .attr("r", 10)
+      .attr("fill-opacity", 1)
+      .attr("class", "circle");
+    d3.select("." + d.name).selectAll("text")
+      .attr("fill", "#000")
+      .style("font", "10px sans-serif");
+    d3.select(".id" + d.id)
+      .attr("fill", "#000");
+  }
+}
+function sizeBy(metric, scale) {
+    graph.selectAll("rect")
+      .transition()
+        .duration(2000)
+        .attr("x", function(d) { return Math.sqrt(d[metric] * scale) * -75; })
+        .attr("y", function(d) { return Math.sqrt(d[metric] * scale) * -75; })
+        .attr("rx", 75)
+        .attr("ry", 75)
+        .attr("width", function(d) { return Math.sqrt(d[metric] * scale) * 150; })
+        .attr("height", function(d) { return Math.sqrt(d[metric] * scale) * 150; });
+
+    graph.selectAll("circle")
+      .transition()
+        .duration(2000)
+        //.attr("r", function(d) { return Math.sqrt(d[metric] * scale) * 90; });
+    transitionRanking(metric);
+}
+
+d3.selectAll("input").on("change", function change() {
+  if (this.value === "eigen") sizeBy("eigen_cent", 1);
+  else sizeBy("degree_cent", 0.1);
+});
+
+var svg = d3.select("body").append("svg")
+            .attr("width", w + l - 25)
+            .attr("height", h)
+            //.attr("fill", "black")
+            .style("background-color", "grey")
+            .style("border", "3px solid #000");
+
+graph = svg.append("g")
+  .attr("transform", "translate(" + l + ",10)");
+
+
+
+
+function drawGraph() {
+  force = d3.layout.force()
+      .gravity(0.05)
+      .linkDistance(200)
+      .charge(-500)
+      //.friction(0)
+      .size([w-l, h]);
+
+
+
+d3.json("position_graph.json", function(json) {
+  graphData = json;
+
+  force
+      .nodes(json.nodes)
+      .links(json.links)
+      .start(); 
+
+  var link = graph.selectAll(".link")
+      .data(json.links)
+    .enter().append("line")
+      .attr("class", "link")
+      //.style("stroke-width", function(d) { return Math.sqrt(d.value); });
+ 
+ var node = graph.selectAll(".node")
+        .data(json.nodes)
+      .enter().append("g")
+        .attr("class", function(d) { return "node " + d['name']; })
+        //.attr("r", function(d){return (d.eigen_cent)*100}) //
+        //.style("fill", function(d) { return color(d.eigen_cent); })//
+        .on("mouseover", showNodeDetails())
+        .on("mouseout", removeNodeDetails())
+        //.on("click", followLink())
+        .call(force.drag);
+
+  var labels = node.append("text")
+      .text(function(d) { return d.name; })
+      .on("mouseover",function(){
+        d3.select(this).style("font", "20px sans-serif");
+    })
+      .on("mouseout",function(){
+              d3.select(this).style("font", "12px sans-serif");
+          });
+      
+
+    clip = node.append("defs").append("svg:clipPath")
+      .attr("id", function(d) { return "clip-" + d['name']; })
+      .append("svg:rect")
+      .attr("id", "clip-rect")
+      .attr("x", function(d) { return Math.sqrt(d[metric] * scale) * -75; })
+      .attr("y", function(d) { return Math.sqrt(d[metric] * scale) * -75; })
+      .attr("rx", 75)
+      .attr("ry", 75)
+      .attr("width", function(d) { return Math.sqrt(d[metric] * scale) * 150; })
+      .attr("height", function(d) { return Math.sqrt(d[metric] * scale) * 150; });
+
+    node.append("svg:circle")
+      //.attr("r", function(d) { return (d.eigen_cent)*100 })
+      .attr("r", 12)
+      .style("fill", function(d) { return color(d[metric]); })
+      .style("stroke", "#000")
+      .style("stroke-width", 1)
+      .attr("class","circle");
+
+
+    svg.append("svg:rect")
+      .attr("class", "rankingBG")
+      .attr("x", w + 20)
+      .attr("y", -2)
+      .attr("width", l)
+      .attr("height", h + 4)
+      .style("fill", "#ddd")
+      .style("stroke", "#000")
+      .style("stroke-width", 3);
+
+
+    svg.append("svg:text")
+      .attr("class", "rankingtitle")
+      .text("Ranking")
+      .attr("x", w + 88)
+      .attr("y", 33);
+
+
+    svg.selectAll(".rankingnum")
+      .data(d3.range(1,83)) // ranking numbers
+    .enter().append("svg:text")
+      .attr("class", "rankingnum")
+      .text(function(d) { return d + ":"; })
+      .attr("x", w + 50)
+      .attr("text-anchor","end")
+      .attr("y", function(d, i) { return i * 25 + 63; });
+
+    drawRanking(graphData);
+
+        force.on("tick", function() {
+      link.attr("x1", function(d) { return Math.max(r, Math.min(w - l - r, d.source.xaxis*3)); })
+          .attr("y1", function(d) { return Math.max(r, Math.min(h - r, d.source.yaxis*3)); })
+          .attr("x2", function(d) { return Math.max(r, Math.min(w - l - r, d.target.xaxis*3)); })
+          .attr("y2", function(d) { return Math.max(r, Math.min(h - r, d.target.yaxis*3)); });
+
+      node.attr("transform", function(d) { 
+          return "translate("
+            + Math.max(r, Math.min(w - l - r, d.xaxis*3)) 
+            + "," 
+            + Math.max(r, Math.min(h - r, d.yaxis*3)) 
+            + ")";
+      });
+    });
+ });
+}
+
+function redrawGraph() {
+  d3.selectAll("input")[0][0].checked = true;
+  d3.selectAll("input")[0][1].checked = false;
+  svg.selectAll(".rankingtext").remove();
+  svg.selectAll(".rankingnum").remove();
+  link.remove();
+  node.remove();
+  drawGraph();
+}
+
+function compareVals(a, b) {
+  return a < b ? 1 : a == b ? 0 : -1;
+}
+
+function drawRanking(data) {
+  svg.selectAll(".rankingtext")
+      .data(data.nodes)
+    .enter().append("svg:text")
+      .sort(function (a, b) { return compareVals(a[metric], b[metric]); })
+      .attr("class", function(d) { return "rankingtext id" + d['id'];} )
+      .text(function(d, i) { return d['name']; })
+      .attr("x", w + 63)
+      .attr("y", function(d, i) { return i * 25 + 63; })
+      .on("mouseover", showNodeDetails())
+      .on("mouseout", removeNodeDetails());
+      //.on("click", followLink());
+}
+
+function transitionRanking(metric) {
+  svg.selectAll(".rankingtext")
+    .sort(function (a, b) { return compareVals(a[metric], b[metric]); })
+    .transition()
+      .duration(2000)
+      .attr("y", function(d, i) { return i * 25 + 63; });  
+}
+
+
+function drawLegend() {
+  svg.append("svg:rect")
+    .attr("x", -20)
+    .attr("y", -20)
+    .attr("width", l)
+    .attr("height", 320)
+    .attr("ry", 20)
+    .style("fill", "#ddd")
+    .style("stroke", "#000")
+    .style("stroke-width", 3);
+
+  svg.append("svg:text")
+    .attr("class", "title")
+    .text("Brain activity")
+    .attr("x", 22)
+    .attr("y", 40);
+
+  svg.append("svg:text")
+    .attr("class", "title")
+    .text("Visualization")
+    .attr("x", 33)
+    .attr("y", 75);
+
+  svg.append("svg:rect")
+    .attr("x", -20)
+    .attr("y", 335)
+    .attr("width", l)
+    .attr("height", 180)
+    .attr("ry", 20)
+    .style("fill", "#ddd")
+    .style("stroke", "#000")
+    .style("stroke-width", 3);
+
+  svg.append("svg:text")
+    .attr("class", "sizeby")
+    .text("Show ranking by centrality:")
+    .attr("x", 10)
+    .attr("y", 360);
+
+  svg.append("svg:text")
+    .attr("class", "sizenote")
+    .text("Eigenvector Centrality measures")
+    .attr("x", 10)
+    .attr("y", 430);
+
+  svg.append("svg:text")
+    .attr("class", "sizenote")
+    .text("the most important connections.")
+    .attr("x", 10)
+    .attr("y", 450);
+
+  svg.append("svg:text")
+    .attr("class", "sizenote")
+    .text("Degree Centrality measures")
+    .attr("x", 10)
+    .attr("y", 480);
+
+  svg.append("svg:text")
+    .attr("class", "sizenote")
+    .text("the most popular connections.")
+    .attr("x", 10)
+    .attr("y", 500);
+
+  // svg.append("svg:rect")
+  //   .attr("x", -20)
+  //   .attr("y", 550)
+  //   .attr("width", l)
+  //   .attr("height", 180)
+  //   .attr("ry", 20)
+  //   .style("fill", "#ddd")
+  //   .style("stroke", "#000")
+  //   .style("stroke-width", 3)
+  //   .on("click", function(){
+  //     redrawGraph();
+  //   });
+
+  // svg.append("svg:text")
+  //   .attr("class", "title")
+  //   .text("Click to Reset")
+  //   .attr("x", 17)
+  //   .attr("y", 615)
+  //   .on("click", function(){
+  //     redrawGraph();
+  //   });
+}
+
+drawGraph();
+drawLegend();
+resetDetailLabels();
+
+
+</script>

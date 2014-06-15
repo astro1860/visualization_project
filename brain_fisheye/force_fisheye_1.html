@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://bost.ocks.org/mike/fisheye/fisheye.js?0.0.3"></script>
+<script>
+
+var width = 1000,
+    height = 1000;
+
+var color = d3.scale.category20();
+
+var force = d3.layout.force()
+    .charge(-500)
+    .linkDistance(200)
+    .gravity(0.05)
+    .size([width, height]);
+
+var fisheye = d3.fisheye.circular()
+    .radius(120)
+    .distortion(4);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+d3.json("position_graph.json", function(error, graph) {
+  force
+      .nodes(graph.nodes)
+      .links(graph.links)
+      .start(); 
+
+  var link = svg.selectAll(".link")
+      .data(graph.links)
+    .enter().append("line")
+      .attr("class", "link")
+      .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+
+  var node = svg.selectAll(".node")
+      .data(graph.nodes)
+    .enter().append("circle")
+      .attr("class", "node")
+      //.attr("r", function(d){return (d.eigen_cent)*300})
+      .attr("r", 12)
+      .style("fill", function(d) { return color(d.eigen_cent); })
+      .call(force.drag);
+
+
+            // svg.append("svg:g")
+            //    .selectAll("text")
+            //    .data(graph.nodes)
+            //    .enter().append("svg:text")
+            //    .attr("class", "label")
+            //    .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+            //    .attr("text-anchor", "middle")
+            //    .attr("y", ".3em")
+            //    .text(function(d) { return d.name; });
+
+    
+  // node.append("title")
+  //     .text(function(d) { return d.name; });
+  
+  svg.on("mousemove", function() {
+  fisheye.focus(d3.mouse(this));
+
+  node.each(function(d) { d.fisheye = fisheye(d); })
+      .attr("cx", function(d) { return d.fisheye.x; })
+      .attr("cy", function(d) { return d.fisheye.y; })
+      .attr("r", function(d) { return d.fisheye.z * 10; });
+
+  link.attr("x1", function(d) { return d.source.fisheye.x; })
+      .attr("y1", function(d) { return d.source.fisheye.y; })
+      .attr("x2", function(d) { return d.target.fisheye.x; })
+      .attr("y2", function(d) { return d.target.fisheye.y; });
+});
+
+  force.on("tick", function() {
+    link.attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+
+    node.attr("cx", function(d) { return d.x; })
+        .attr("cy", function(d) { return d.y; });
+  });
+});
+
+</script>
